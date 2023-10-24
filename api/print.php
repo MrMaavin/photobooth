@@ -14,7 +14,7 @@ $Logger->addLogData(['php' => basename($_SERVER['PHP_SELF'])]);
 
 try {
     if (empty($_GET['filename'])) {
-        throw new Exception('No file provided!');
+        throw new \Exception('No file provided!');
     }
 
     $printManager = new PrintManager();
@@ -23,7 +23,7 @@ try {
     $printManager->printCounter = PRINT_COUNTER;
 
     if ($printManager->isPrintLocked()) {
-        throw new Exception($config['print']['limit_msg']);
+        throw new \Exception($config['print']['limit_msg']);
     }
 
     $imageHandler = new Image();
@@ -38,16 +38,9 @@ try {
 
     // exit with error if file does not exist
     if (!file_exists($filename_source)) {
-        throw new Exception('File ' . $filename . ' not found.');
+        throw new \Exception('File ' . $filename . ' not found.');
     }
-
-    // Only jpg/jpeg are supported
-    $imginfo = getimagesize($filename_source);
-    $mimetype = $imginfo['mime'];
-    if ($mimetype != 'image/jpg' && $mimetype != 'image/jpeg') {
-        throw new Exception('The source file type ' . $mimetype . ' is not supported');
-    }
-} catch (Exception $e) {
+} catch (\Exception $e) {
     // Handle the exception
     $ErrorData = [
         'error' => $e->getMessage(),
@@ -62,16 +55,17 @@ try {
 if (!file_exists($filename_print)) {
     try {
         $source = $imageHandler->createFromImage($filename_source);
-
+        if (!$source) {
+            throw new \Exception('Invalid image resource');
+        }
         // rotate image if needed
-        list($width, $height) = getimagesize($filename_source);
-        if ($width > $height || $config['print']['no_rotate'] === true) {
+        if (imagesx($source) > imagesy($source) || $config['print']['no_rotate'] === true) {
             $imageHandler->qrRotate = false;
         } else {
             $source = imagerotate($source, 90, 0);
             $imageHandler->qrRotate = true;
             if (!$source) {
-                throw new Exception('Can\'t rotate image resource.');
+                throw new \Exception('Cannot rotate image resource.');
             }
         }
 
@@ -80,7 +74,7 @@ if (!file_exists($filename_print)) {
             $imageHandler->frameExtend = false;
             $source = $imageHandler->applyFrame($source);
             if (!$source) {
-                throw new Exception('Failed to apply frame to image resource.');
+                throw new \Exception('Failed to apply frame to image resource.');
             }
         }
 
@@ -101,11 +95,11 @@ if (!file_exists($filename_print)) {
 
             $qrCode = $imageHandler->createQr();
             if (!$qrCode) {
-                throw new Exception('Can\'t create QR Code resource.');
+                throw new \Exception('Cannot create QR Code resource.');
             }
             $source = $imageHandler->applyQr($qrCode, $source);
             if (!$source) {
-                throw new Exception('Can\'t apply QR Code to image resource.');
+                throw new \Exception('Cannot apply QR Code to image resource.');
             }
             imagedestroy($qrCode);
         }
@@ -124,7 +118,7 @@ if (!file_exists($filename_print)) {
 
             $source = $imageHandler->applyText($source);
             if (!$source) {
-                throw new Exception('Failed to apply text to image resource.');
+                throw new \Exception('Failed to apply text to image resource.');
             }
         }
 
@@ -133,18 +127,18 @@ if (!file_exists($filename_print)) {
             $imageHandler->resizeMaxHeight = $config['print']['crop_height'];
             $source = $imageHandler->resizeCropImage($source);
             if (!$source) {
-                throw new Exception('Failed to crop image resource.');
+                throw new \Exception('Failed to crop image resource.');
             }
         }
 
         $imageHandler->jpegQuality = 100;
         if (!$imageHandler->saveJpeg($source, $filename_print)) {
-            throw new Exception('Can\'t save print image.');
+            throw new \Exception('Cannot save print image.');
         }
 
         // clear cache
         imagedestroy($source);
-    } catch (Exception $e) {
+    } catch (\Exception $e) {
         // Try to clear cache
         if ($source instanceof GdImage) {
             imagedestroy($source);
